@@ -1,0 +1,48 @@
+{
+    "name": "biurad/biurad-helpers",
+    "type": "library",
+    "description": "Set of functions that implements general purpose utility class for different scopes",
+    "keywords": [
+        "helpers",
+        "functions",
+        "array utilities",
+        "error handlers",
+        "biuradphp",
+        "php7"
+    ],
+    "homepage": "https://www.biurad.com",
+    "license": "BSD-3-Clause",
+    "authors": [
+        {
+            "name": "Divine Niiquaye Ibok",
+            "email": "divineibok@gmail.com"
+        },
+        {
+            "name": "Biurad Lap Community",
+            "homepage": "https://biurad.com/contributors"
+        }
+    ],
+    "require": {
+        "php": "^7.1.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "BiuradPHP\\Support\\": "src/"
+        },
+        "exclude-from-classmap": [
+            "/Tests/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "BiuradPHP\\Support\\Tests\\": "Tests/"
+        }
+    },
+    "minimum-stability": "dev",
+    "suggest": {
+        "biurad/dependency-injection": "For autowiring the dependency in container"
+    }
+}
