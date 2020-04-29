@@ -24,6 +24,7 @@ use BiuradPHP\DependencyInjection\Interfaces;
 use Closure;
 use InvalidArgumentException;
 use ReflectionClass;
+use ReflectionException;
 use ReflectionFunction;
 use ReflectionFunctionAbstract;
 use ReflectionMethod;
@@ -84,13 +85,13 @@ class BoundMethod
     /**
      * Call a string reference to a class using `Class@method`, and `class::method` syntax.
      *
-     * @param  ContainerInterface  $container
-     * @param  string|callable  $target
-     * @param  array  $parameters
-     * @param  string|null  $defaultMethod
+     * @param ContainerInterface $container
+     * @param string|callable $target
+     * @param array $parameters
+     * @param string|null $defaultMethod
      * @return mixed
      *
-     * @throws InvalidArgumentException
+     * @throws ReflectionException
      */
     protected static function callClass(?ContainerInterface $container = null, $target, array $parameters = [], $defaultMethod = null)
     {
@@ -124,9 +125,9 @@ class BoundMethod
     /**
      * Call a method that has been bound to the container.
      *
-     * @param  Container  $container
-     * @param  callable  $callback
-     * @param  mixed  $default
+     * @param callable $callback
+     * @param mixed $default
+     *
      * @return mixed
      */
     protected static function callBoundMethod($callback, $default)
@@ -146,7 +147,7 @@ class BoundMethod
      * @param  array  $parameters
      * @return array
      *
-     * @throws \ReflectionException
+     * @throws ReflectionException
      */
     protected static function getMethodDependencies(?ContainerInterface $container, $callback, array $parameters = [])
     {
@@ -178,7 +179,7 @@ class BoundMethod
      */
     protected static function getCallReflector($callback)
     {
-        if (is_object($callback) && !$callback instanceof \Closure) {
+        if (is_object($callback) && !$callback instanceof Closure) {
             $callback = [$callback, '__invoke'];
         }
 
@@ -189,11 +190,13 @@ class BoundMethod
     /**
      * Get the dependency for the given call parameter.
      *
-     * @param  Container|null  $container
-     * @param  ReflectionParameter  $parameter
-     * @param  array  $parameters
-     * @param  array  $dependencies
+     * @param ContainerInterface|null $container
+     * @param ReflectionParameter $parameter
+     * @param array $parameters
+     * @param array $dependencies
+     *
      * @return void
+     * @throws ReflectionException
      */
     protected static function addDependencyForCallParameter(?ContainerInterface $container, $parameter, array &$parameters, &$dependencies)
     {

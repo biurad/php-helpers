@@ -116,7 +116,7 @@ if (!function_exists('events')) {
      * @param string|object|null $event
      * @param mixed              $args
      *
-     * @return array|EventDispatcherInterface
+     * @return FactoryInterface|object
      */
     function events($event = null, $args = [])
     {
@@ -245,9 +245,8 @@ if (!function_exists('interpolate')) {
      * Output: Hello Member! Good Day!
      *
      * @param string $string
-     * @param array  $values       Arguments (key => value). Will skip unknown names.
-     * @param string $placeholder  placeholder prefix, "{" by default
-     * @param string $postfix      placeholder postfix, "}" by default
+     * @param array $values Arguments (key => value). Will skip unknown names.
+     * @param string $placeholder placeholder prefix, "{" by default
      *
      * @return mixed
      */
@@ -255,12 +254,12 @@ if (!function_exists('interpolate')) {
     {
         $replaces = [];
         foreach ($values as $key => $value) {
-            $value = (is_array($value) || $value instanceof \Closure) ? '' : $value;
+            $value = (is_array($value) || $value instanceof Closure) ? '' : $value;
 
             try {
                 //Object as string
                 $value = is_object($value) ? (string) $value : $value;
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $value = '';
             }
 
@@ -634,9 +633,9 @@ if (!function_exists('csrf_token')) {
     /**
      * Get the CSRF token value.
      *
+     * @param string $token
      * @return string
      *
-     * @throws RuntimeException
      */
     function csrf_token(string $token = '_token')
     {
@@ -1058,6 +1057,7 @@ if (!function_exists('detect_debug_mode')) {
      * Can be used to set a debug mode or production mode of a website.
      *
      * @param string|array $list
+     * @param string $cookieName
      *
      * @return bool
      */
