@@ -157,16 +157,7 @@ class BoundMethod
             static::addDependencyForCallParameter($container, $parameter, $parameters, $dependencies);
         }
 
-        $newDependencies = $dependencies;
-        foreach ($dependencies as $index => $dependency) {
-            foreach ($parameters as $parameter) {
-                if (@$dependency instanceof $parameter) {
-                    $newDependencies[$index] = $parameter;
-                }
-            }
-        }
-
-        return array_merge($newDependencies, $parameters);
+        return array_merge($dependencies, $parameters);
     }
 
     /**
@@ -209,14 +200,22 @@ class BoundMethod
 
             unset($parameters[$parameter->getClass()->name]);
         } elseif ($parameter->getClass()) {
+            $foundClass = array_filter($parameters, function ($class) use ($parameter) {
+                return is_subclass_of($class, $parameter->getClass()->name);
+            });
+
+            if (!empty($foundClass)) {
+                $dependencies[] = current($foundClass);
+                return;
+            }
+
             if (null !== $container) {
                 $dependencies[] = $container->get($parameter->getClass()->name);
-            } else {
-                if ($reflector = new ReflectionClass($parameter->getClass()->name)) {
-                    if ($reflector->isInstantiable()) {
-                        $dependencies[] = $reflector->newInstance();
-                    }
-                }
+                return;
+            }
+
+            if ($parameter->getClass()->isInstantiable()) {
+                $dependencies[] = $parameter->getClass()->newInstance();
             }
         } elseif ($parameter->isDefaultValueAvailable()) {
             $dependencies[] = $parameter->getDefaultValue();
