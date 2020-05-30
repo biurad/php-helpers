@@ -32,30 +32,6 @@ use BiuradPHP\DependencyInjection\Interfaces\FactoryInterface;
 use BiuradPHP\Events\Interfaces\EventDispatcherInterface;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
-use function array_values;
-use function class_exists;
-use function is_array;
-use function getenv;
-use function strtolower;
-use function is_object;
-use function explode;
-use function strtr;
-use function trim;
-use function array_key_exists;
-use function array_shift;
-use function intl_is_failure;
-use function extension_loaded;
-use function php_uname;
-use function locale_get_default;
-use function preg_replace;
-use function preg_split;
-use function array_unshift;
-use function str_repeat;
-use function is_bool;
-use function in_array;
-
-use const PHP_SESSION_ACTIVE;
-
 /**
  * Get the available container instance.
  *

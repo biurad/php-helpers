@@ -20,9 +20,9 @@ declare(strict_types=1);
 namespace BiuradPHP\Support;
 
 use Psr\Container\ContainerInterface;
-use BiuradPHP\DependencyInjection\Interfaces;
 use Closure;
 use InvalidArgumentException;
+use Nette\DI\Container;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;
@@ -30,18 +30,10 @@ use ReflectionFunctionAbstract;
 use ReflectionMethod;
 use ReflectionParameter;
 
-use function array_values;
-use function is_string;
-use function is_object;
-use function count;
-use function array_key_exists;
-use function is_array;
-
-use const PREG_UNMATCHED_AS_NULL;
-
 class BoundMethod
 {
     public const CALLABLE_PATTERN = '!^([^\:]+)(:|::|@)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)$!';
+    public const NOT_NULL = 'NULL_DISALLOWED';
 
     /**
      * Call the given `Closure`, `class@method`, `class::method`,
@@ -62,11 +54,11 @@ class BoundMethod
             return static::callClass($container, $callback, $parameters, $defaultMethod);
         }
 
-        if ($container instanceof Interfaces\FactoryInterface) {
+        if ($container instanceof Container) {
             return $container->callMethod($callback, static::getMethodDependencies($container, $callback, $parameters));
         }
 
-        return $callback(...array_values(static::getMethodDependencies($container, $callback, $parameters)));
+        return $callback(...static::getMethodDependencies($container, $callback, $parameters));
     }
 
     /**
@@ -119,7 +111,11 @@ class BoundMethod
      */
     protected static function getMethodDependencies(?ContainerInterface $container, $callback, array $parameters = [])
     {
-        return static::addDependencyForCallParameter($container, static::getCallReflector($callback), $parameters);
+        $dependencies = static::addDependencyForCallParameter($container, static::getCallReflector($callback), $parameters);
+
+        return array_filter($dependencies, function ($parameter) {
+            return self::NOT_NULL !== $parameter;
+        });
     }
 
     /**
@@ -179,10 +175,15 @@ class BoundMethod
                 }
 
                 if ($parameter->isDefaultValueAvailable() || $parameter->isOptional()) {
-                    return $parameter->getDefaultValue();
+                    // Catch erros for internal functions...
+                    try {
+                        return $parameter->getDefaultValue();
+                    } catch (ReflectionException $e) {
+                        // Do nothing, since "null" is returned...
+                    }
                 }
 
-                return null;
+                return $parameter->allowsNull() ? null : self::NOT_NULL;
             },
 
             $reflection->getParameters()
