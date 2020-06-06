@@ -262,17 +262,23 @@ function object_get($object, $key, $default = null)
  *
  * @return mixed
  */
-function object_set($object, $key, $value)
+function object_set(&$object, $key, $value)
 {
     if (is_null($key) || trim($key) == '') {
         return $object;
     }
 
-    foreach (explode('.', $key) as $segment) {
-        $object = $object->{$segment} = value($value);
+    foreach (explode('.', $key) as $field) {
+        if (\is_object($object)) {
+            // Handle objects.
+            if (!isset($object->{$field})) {
+                $object->{$field} = [];
+            }
+            $object = &$object->{$field};
+        }
     }
 
-    return $object;
+    $object = $value;
 }
 
 /**
@@ -349,15 +355,14 @@ function data_set(&$target, $key, $value, $overwrite = true)
 }
 
 /**
- * Remove one or many array items from a given array using "dot" notation.
+ * Remove one or many array/object items from a given array using "dot" notation.
  *
- * @param  array  $array
+ * @param  array|object  $array
  * @param  array|string  $keys
  * @return void
  */
 function array_forget(&$array, $keys)
 {
-    $original = &$array;
     $keys = (array) $keys;
 
     if (count($keys) === 0) {
@@ -372,32 +377,36 @@ function array_forget(&$array, $keys)
             continue;
         }
 
-        $parts = explode('.', $key);
+        $path = explode('.', $key);
+        $var = array_pop($path);
 
-        // clean up before each pass
-        $array = &$original;
-
-        while (count($parts) > 1) {
-            $part = array_shift($parts);
-
-            if (isset($array[$part]) && is_array($array[$part])) {
-                $array = &$array[$part];
+        foreach ($path as $field) {
+            if (\is_object($array)) {
+                // Handle objects.
+                if (!isset($array->{$field})) {
+                    return $this;
+                }
+                $array = &$array->{$field};
             } else {
-                continue 2;
+                // Handle arrays and scalars.
+                if (!\is_array($array) || !isset($array[$field])) {
+                    return $this;
+                }
+                $array = &$array[$field];
             }
         }
 
-        unset($array[array_shift($parts)]);
+        unset($array[$var]);
     }
 }
 
 /**
- * Gets a dot-notated key from an array, with a default value if it does
+ * Gets a dot-notated key from an array/object, with a default value if it does
  * not exist.
  *
- * @param   array  $array   The search array
- * @param   mixed  $key     The dot-notated key or array of keys
- * @param   string $default The default value
+ * @param   array|object  $array   The search array
+ * @param   mixed  $key            The dot-notated key or array of keys
+ * @param   string $default        The default value
  *
  * @return  mixed
  *
@@ -429,25 +438,25 @@ function array_get($array, $key, $default = null)
         return $array[$key];
     }
 
-    foreach (explode('.', $key) as $key_part) {
-        if (($array instanceof ArrayAccess and isset($array[$key_part])) === false) {
-            if (!is_array($array) or !array_key_exists($key_part, $array)) {
-                return value($default);
-            }
+    foreach (explode('.', $key) as $field) {
+        if (\is_object($array) && isset($array->{$field})) {
+            $array = $array->{$field};
+        } elseif (\is_array($array) && isset($array[$field])) {
+            $array = $array[$field];
+        } else {
+            return value($default);
         }
-
-        $array = $array[$key_part];
     }
 
     return $array;
 }
 
 /**
- * Set an array item (dot-notated) to the value.
+ * Set an array/object item (dot-notated) to the value.
  *
- * @param   array $array The array to insert it into
- * @param   mixed $key   The dot-notated key to set or array of keys
- * @param   mixed $value The value
+ * @param   array|object $array The array to insert it into
+ * @param   mixed $key          The dot-notated key to set or array of keys
+ * @param   mixed $value        The value
  *
  * @return  void
  */
@@ -463,21 +472,29 @@ function array_set(&$array, $key, $value = null)
         foreach ($key as $k => $v) {
             array_set($array, $k, $v);
         }
-    } else {
-        $keys = explode('.', $key);
 
-        while (count($keys) > 1) {
-            $key = array_shift($keys);
-
-            if (!isset($array[$key]) || !is_array($array[$key])) {
-                $array[$key] = [];
-            }
-
-            $array = &$array[$key];
-        }
-
-        $array[array_shift($keys)] = $value;
+        return;
     }
+
+    foreach (explode('.', $key) as $field) {
+        if (\is_object($array)) {
+            // Handle objects.
+            if (!isset($array->{$field})) {
+                $array->{$field} = [];
+            }
+            $array = &$array->{$field};
+        } else {
+            // Handle arrays and scalars.
+            if (!\is_array($array)) {
+                $array = [$field => []];
+            } elseif (!isset($array[$field])) {
+                $array[$field] = [];
+            }
+            $array = &$array[$field];
+        }
+    }
+
+    $array = $value;
 }
 
 /**
