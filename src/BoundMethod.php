@@ -3,26 +3,24 @@
 declare(strict_types=1);
 
 /*
- * This code is under BSD 3-Clause "New" or "Revised" License.
+ * This file is part of BiuradPHP opensource projects.
  *
- * PHP version 7 and above required
- *
- * @category  CommonHelpers
+ * PHP version 7.1 and above required
  *
  * @author    Divine Niiquaye Ibok <divineibok@gmail.com>
  * @copyright 2019 Biurad Group (https://biurad.com/)
  * @license   https://opensource.org/licenses/BSD-3-Clause License
  *
- * @link      https://www.biurad.com/projects/supportmanager
- * @since     Version 0.1
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 
 namespace BiuradPHP\Support;
 
-use Psr\Container\ContainerInterface;
 use Closure;
 use InvalidArgumentException;
 use Nette\DI\Container;
+use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;
@@ -33,25 +31,27 @@ use ReflectionParameter;
 class BoundMethod
 {
     public const CALLABLE_PATTERN = '!^([^\:]+)(:|::|@)([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)$!';
+
     public const NOT_NULL = 'NULL_DISALLOWED';
 
     /**
      * Call the given `Closure`, `class@method`, `class::method`,
      * `[$class, $method]`, `object` and inject its dependencies.
      *
-     * @param  ContainerInterface|null  $container Can be set to null
-     * @param  callable|string  $callback
-     * @param  array  $parameters
-     * @param  string|null  $defaultMethod
-     * @return mixed
+     * @param null|ContainerInterface $container     Can be set to null
+     * @param callable|string         $callback
+     * @param array                   $parameters
+     * @param null|string             $defaultMethod
      *
      * @throws ReflectionException
      * @throws InvalidArgumentException
+     *
+     * @return mixed
      */
-    public static function call(?ContainerInterface $container = null, $callback, array $parameters = [], $defaultMethod = null)
+    public static function call(?ContainerInterface $container = null, $callback, array $parameters = [])
     {
-        if (static::isCallableWithSign($callback) || $defaultMethod) {
-            return static::callClass($container, $callback, $parameters, $defaultMethod);
+        if (static::isCallableWithSign($callback)) {
+            return static::callClass($container, $callback, $parameters);
         }
 
         if ($container instanceof Container) {
@@ -65,17 +65,18 @@ class BoundMethod
      * Call a string reference to a class using `Class@method`, and `class::method` syntax.
      *
      * @param ContainerInterface $container
-     * @param string|callable $target
-     * @param array $parameters
-     * @param string|null $defaultMethod
-     * @return mixed
+     * @param callable|string    $target
+     * @param array              $parameters
+     * @param null|string        $defaultMethod
      *
      * @throws ReflectionException
+     *
+     * @return mixed
      */
-    protected static function callClass(?ContainerInterface $container = null, $target, array $parameters = [], $defaultMethod = null)
+    protected static function callClass(?ContainerInterface $container = null, $target, array $parameters = [])
     {
         $segments = [$target];
-        preg_match(self::CALLABLE_PATTERN, $target, $segments, PREG_UNMATCHED_AS_NULL);
+        \preg_match(self::CALLABLE_PATTERN, $target, $segments, \PREG_UNMATCHED_AS_NULL);
 
         // We will assume an @ sign is used to delimit the class name from the method
         // name. We will split on this @ sign and then build a callable array that
@@ -89,31 +90,35 @@ class BoundMethod
                 }
             }
         }
-        $method = count($segments) === 3 ? $segments[3] : $defaultMethod;
+        $method = \count($segments) === 3 ? $segments[3] : '__invoke';
 
         if (null === $method) {
             throw new InvalidArgumentException('Method not provided.');
         }
 
-        return static::call($container, [$class, $method], $parameters, $defaultMethod);
+        return static::call($container, [$class, $method], $parameters);
     }
 
     /**
      * Get all dependencies for a given method.
      *
-     * @param  ContainerInterface|null  $container
-     * @param  callable|string  $callback
-     * @param  array  $parameters
-     *
-     * @return array
+     * @param null|ContainerInterface $container
+     * @param callable|string         $callback
+     * @param array                   $parameters
      *
      * @throws ReflectionException
+     *
+     * @return array
      */
     protected static function getMethodDependencies(?ContainerInterface $container, $callback, array $parameters = [])
     {
-        $dependencies = static::addDependencyForCallParameter($container, static::getCallReflector($callback), $parameters);
+        $dependencies = static::addDependencyForCallParameter(
+            $container,
+            static::getCallReflector($callback),
+            $parameters
+        );
 
-        return array_filter($dependencies, function ($parameter) {
+        return \array_filter($dependencies, function ($parameter) {
             return self::NOT_NULL !== $parameter;
         });
     }
@@ -121,50 +126,52 @@ class BoundMethod
     /**
      * Get the proper reflection instance for the given callback.
      *
-     * @param  callable|string $callback
+     * @param callable|string $callback
+     *
+     * @throws ReflectionException
      *
      * @return ReflectionFunctionAbstract
-     * @throws ReflectionException
      */
     protected static function getCallReflector($callback)
     {
-        if (is_object($callback) && !$callback instanceof Closure) {
+        if (\is_object($callback) && !$callback instanceof Closure) {
             $callback = [$callback, '__invoke'];
         }
 
-        return is_array($callback) ? new ReflectionMethod($callback[0], $callback[1])
+        return \is_array($callback) ? new ReflectionMethod($callback[0], $callback[1])
             : new ReflectionFunction($callback);
     }
 
     /**
      * Get the dependency for the given call parameter.
      *
-     * @param ContainerInterface|null $container
+     * @param null|ContainerInterface    $container
      * @param ReflectionFunctionAbstract $reflection
-     * @param array $parameters
+     * @param array                      $parameters
+     *
+     * @throws ReflectionException
      *
      * @return array
-     * @throws ReflectionException
      */
     protected static function addDependencyForCallParameter(?ContainerInterface $container, ReflectionFunctionAbstract $reflection, array &$parameters)
     {
-        return array_map(
+        return \array_map(
             function (ReflectionParameter $parameter) use ($parameters, $container) {
-                if (array_key_exists($parameter->getName(), $parameters)) {
+                if (\array_key_exists($parameter->getName(), $parameters)) {
                     return $parameters[$parameter->getName()];
                 }
 
-                if ($parameter->getClass() && array_key_exists($parameter->getType()->getName(), $parameters)) {
+                if ($parameter->getClass() && \array_key_exists($parameter->getType()->getName(), $parameters)) {
                     return $parameters[$parameter->getType()->getName()];
                 }
 
                 if (($type = $parameter->getType()) && ($class = $parameter->getClass())) {
-                    $foundClass = array_filter($parameters, function ($class) use ($type) {
-                        return is_a($class, $type->getName());
+                    $foundClass = \array_filter($parameters, function ($class) use ($type) {
+                        return \is_a($class, $type->getName());
                     });
 
                     if (!empty($foundClass)) {
-                        return current($foundClass);
+                        return \current($foundClass);
                     }
 
                     if ($container instanceof ContainerInterface) {
@@ -185,7 +192,6 @@ class BoundMethod
 
                 return $parameter->allowsNull() ? null : self::NOT_NULL;
             },
-
             $reflection->getParameters()
         );
     }
@@ -193,11 +199,12 @@ class BoundMethod
     /**
      * Determine if the given string is in Class@method, and class::method syntax.
      *
-     * @param  string|callable  $callback
+     * @param callable|string $callback
+     *
      * @return bool
      */
     protected static function isCallableWithSign($callback)
     {
-        return is_string($callback) && (preg_match(self::CALLABLE_PATTERN, $callback) || class_exists($callback));
+        return \is_string($callback) && (\preg_match(self::CALLABLE_PATTERN, $callback) || \class_exists($callback));
     }
 }
