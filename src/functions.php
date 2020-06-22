@@ -726,6 +726,235 @@ function strip_explode($str)
 }
 
 /**
+ * Word Censoring Function
+ *
+ * Supply a string and an array of disallowed words and any
+ * matched words will be converted to #### or to the replacement
+ * word you've submitted.
+ *
+ * @param	string	the text string
+ * @param	string	the array of censored words
+ * @param	string	the optional replacement value
+ *
+ * @return string
+ */
+function word_censor($str, $censored, $replacement = '')
+{
+    if (empty($censored)) {
+        return $str;
+    }
+
+    $str = ' ' . $str . ' ';
+
+    // \w, \b and a few others do not match on a unicode character
+    // set for performance reasons. As a result words like über
+    // will not match on a word boundary. Instead, we'll assume that
+    // a bad word will be bookended by any of these characters.
+    $delim = '[-_\'\"`(){}<>\[\]|!?@#%&,.:;^~*+=\/ 0-9\n\r\t]';
+
+    foreach ($censored as $badword) {
+        $badword = \str_replace('\*', '\w*?', \preg_quote($badword, '/'));
+
+        if ('' !== $replacement) {
+            $str = \preg_replace(
+                "/({$delim})(" . $badword . ")({$delim})/i",
+                "\\1{$replacement}\\3",
+                $str
+            );
+        } elseif (
+            \preg_match_all(
+                "/{$delim}(" . $badword . "){$delim}/i",
+                $str,
+                $matches,
+                \PREG_PATTERN_ORDER | \PREG_OFFSET_CAPTURE
+            )
+        ) {
+            $matches = $matches[1];
+
+            for ($i = \count($matches) - 1; $i >= 0; $i--) {
+                $length = \strlen($matches[$i][0]);
+                $str    = \substr_replace(
+                    $str,
+                    \str_repeat('#', $length),
+                    $matches[$i][1],
+                    $length
+                );
+            }
+        }
+    }
+
+    return \trim($str);
+}
+
+/**
+ * Checks if the passed string would match the given shell wildcard pattern.
+ * This function emulates fnmatch(), which may be unavailable at certain environment, using PCRE.
+ *
+ * @param string $pattern the shell wildcard pattern
+ * @param string $string  the tested string
+ * @param array  $options options for matching. Valid options are:
+ *
+ * - caseSensitive: bool, whether pattern should be case sensitive. Defaults to `true`.
+ * - escape: bool, whether backslash escaping is enabled. Defaults to `true`.
+ * - filePath: bool, whether slashes in string only matches slashes in the given pattern. Defaults to `false`.
+ *
+ * @return bool whether the string matches pattern or not
+ */
+function match_wildcard($pattern, $string, $options = [])
+{
+    if ($pattern === '*' && empty($options['filePath'])) {
+        return true;
+    }
+
+    $replacements = [
+        '\\\\\\\\' => '\\\\',
+        '\\\\\\*'  => '[*]',
+        '\\\\\\?'  => '[?]',
+        '\*'       => '.*',
+        '\?'       => '.',
+        '\[\!'     => '[^',
+        '\['       => '[',
+        '\]'       => ']',
+        '\-'       => '-',
+    ];
+
+    if (isset($options['escape']) && !$options['escape']) {
+        unset($replacements['\\\\\\\\'], $replacements['\\\\\\*'], $replacements['\\\\\\?']);
+    }
+
+    if (!empty($options['filePath'])) {
+        $replacements['\*'] = '[^/\\\\]*';
+        $replacements['\?'] = '[^/\\\\]';
+    }
+
+    $pattern = \strtr(\preg_quote($pattern, '#'), $replacements);
+    $pattern = '#^' . $pattern . '$#us';
+
+    if (isset($options['caseSensitive']) && !$options['caseSensitive']) {
+        $pattern .= 'i';
+    }
+
+    return \preg_match($pattern, $string) === 1;
+}
+
+/**
+ * Generate a random UUID version 4
+ *
+ * Warning: This method should not be used as a random seed for any cryptographic operations.
+ * Instead you should use the openssl or mcrypt extensions.
+ *
+ * It should also not be used to create identifiers that have security implications, such as
+ * 'unguessable' URL identifiers. Instead you should use `Security::randomBytes()` for that.
+ *
+ * @see https://www.ietf.org/rfc/rfc4122.txt
+ *
+ * @return string RFC 4122 UUID
+ *
+ * @copyright Matt Farina MIT License https://github.com/lootils/uuid/blob/master/LICENSE
+ */
+function uuid4(): string
+{
+    return \sprintf(
+        '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+        // 32 bits for "time_low"
+        \random_int(0, 65535),
+        \random_int(0, 65535),
+        // 16 bits for "time_mid"
+        \random_int(0, 65535),
+        // 12 bits before the 0100 of (version) 4 for "time_hi_and_version"
+        \random_int(0, 4095) | 0x4000,
+        // 16 bits, 8 bits for "clk_seq_hi_res",
+        // 8 bits for "clk_seq_low",
+        // two most significant bits holds zero and one for variant DCE1.1
+        \random_int(0, 0x3fff) | 0x8000,
+        // 48 bits for "node"
+        \random_int(0, 65535),
+        \random_int(0, 65535),
+        \random_int(0, 65535)
+    );
+}
+
+/**
+ * Converts filesize from human readable string to bytes
+ *
+ * @param string $size    size in human readable string like '5MB', '5M', '500B', '50kb' etc
+ * @param mixed  $default Value to be returned when invalid size was used, for example 'Unknown type'
+ *
+ * @throws InvalidArgumentException on invalid Unit type
+ *
+ * @return mixed Number of bytes as integer on success, `$default` on failure if not false
+ */
+function readable_file_size(string $size, $default = false)
+{
+    if (\ctype_digit($size)) {
+        return (int) $size;
+    }
+    $size = \strtoupper($size);
+
+    $l = -2;
+    $i = \array_search(\substr($size, -2), ['KB', 'MB', 'GB', 'TB', 'PB'], true);
+
+    if ($i === false) {
+        $l = -1;
+        $i = \array_search(\substr($size, -1), ['K', 'M', 'G', 'T', 'P'], true);
+    }
+
+    if ($i !== false) {
+        $size = (float) \substr($size, 0, $l);
+
+        return (int) ($size * \pow(1024, $i + 1));
+    }
+
+    if (\substr($size, -1) === 'B' && \ctype_digit(\substr($size, 0, -1))) {
+        $size = \substr($size, 0, -1);
+
+        return (int) $size;
+    }
+
+    if ($default !== false) {
+        return $default;
+    }
+
+    throw new InvalidArgumentException('No unit type.');
+}
+
+/**
+ * Limits a string to a number of characters.
+ *
+ * @param        $str
+ * @param int    $n
+ * @param string $end_char
+ *
+ * @return string
+ *
+ * @category Strings
+ */
+function character_limiter($str, $n = 500, $end_char = '&#8230;')
+{
+    if (\strlen($str) < $n) {
+        return $str;
+    }
+    $str = \strip_tags($str);
+    $str = \preg_replace("/\s+/", ' ', \str_replace(["\r\n", "\r", "\n"], ' ', $str));
+
+    if (\strlen($str) <= $n) {
+        return $str;
+    }
+
+    $out = '';
+
+    foreach (\explode(' ', \trim($str)) as $val) {
+        $out .= $val . ' ';
+
+        if (\strlen($out) >= $n) {
+            $out = \trim($out);
+
+            return (\strlen($out) == \strlen($str)) ? $out : $out . $end_char;
+        }
+    }
+}
+
+/**
  * Detects debug mode by IP addresses or computer names whitelist detection.
  * Can be used to set a debug mode or production mode of a website.
  *
