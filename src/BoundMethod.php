@@ -54,11 +54,70 @@ class BoundMethod
             return static::callClass($container, $callback, $parameters);
         }
 
+        $parameters = static::getMethodDependencies($container, $callback, $parameters);
+
         if ($container instanceof Container) {
-            return $container->callMethod($callback, static::getMethodDependencies($container, $callback, $parameters));
+            return $container->callMethod($callback, $parameters);
         }
 
-        return $callback(...static::getMethodDependencies($container, $callback, $parameters));
+        return $callback(...$parameters);
+    }
+
+    /**
+     * Get the dependency for the given call parameter.
+     *
+     * @param null|ContainerInterface    $container
+     * @param ReflectionFunctionAbstract $reflection
+     * @param array                      $parameters
+     *
+     * @throws ReflectionException
+     *
+     * @return array
+     */
+    public static function addDependencyForCallParameter(
+        ?ContainerInterface $container,
+        ReflectionFunctionAbstract $reflection,
+        array $parameters
+    ): array {
+        return \array_map(
+            function (ReflectionParameter $parameter) use ($parameters, $container) {
+                if (\array_key_exists($parameter->getName(), $parameters)) {
+                    return $parameters[$parameter->getName()];
+                }
+
+                if ($parameter->getClass() && \array_key_exists($parameter->getType()->getName(), $parameters)) {
+                    return $parameters[$parameter->getType()->getName()];
+                }
+
+                if (($type = $parameter->getType()) && ($class = $parameter->getClass())) {
+                    $foundClass = \array_filter($parameters, function ($class) use ($type) {
+                        return \is_a($class, $type->getName());
+                    });
+
+                    if (!empty($foundClass)) {
+                        return \current($foundClass);
+                    }
+
+                    if ($container instanceof ContainerInterface) {
+                        return $container->get($class->getName());
+                    }
+
+                    return $class->newInstance();
+                }
+
+                if ($parameter->isDefaultValueAvailable() || $parameter->isOptional()) {
+                    // Catch erros for internal functions...
+                    try {
+                        return $parameter->getDefaultValue();
+                    } catch (ReflectionException $e) {
+                        // Do nothing, since "null" is returned...
+                    }
+                }
+
+                return $parameter->allowsNull() ? null : self::NOT_NULL;
+            },
+            $reflection->getParameters()
+        );
     }
 
     /**
@@ -140,60 +199,6 @@ class BoundMethod
 
         return \is_array($callback) ? new ReflectionMethod($callback[0], $callback[1])
             : new ReflectionFunction($callback);
-    }
-
-    /**
-     * Get the dependency for the given call parameter.
-     *
-     * @param null|ContainerInterface    $container
-     * @param ReflectionFunctionAbstract $reflection
-     * @param array                      $parameters
-     *
-     * @throws ReflectionException
-     *
-     * @return array
-     */
-    protected static function addDependencyForCallParameter(?ContainerInterface $container, ReflectionFunctionAbstract $reflection, array &$parameters)
-    {
-        return \array_map(
-            function (ReflectionParameter $parameter) use ($parameters, $container) {
-                if (\array_key_exists($parameter->getName(), $parameters)) {
-                    return $parameters[$parameter->getName()];
-                }
-
-                if ($parameter->getClass() && \array_key_exists($parameter->getType()->getName(), $parameters)) {
-                    return $parameters[$parameter->getType()->getName()];
-                }
-
-                if (($type = $parameter->getType()) && ($class = $parameter->getClass())) {
-                    $foundClass = \array_filter($parameters, function ($class) use ($type) {
-                        return \is_a($class, $type->getName());
-                    });
-
-                    if (!empty($foundClass)) {
-                        return \current($foundClass);
-                    }
-
-                    if ($container instanceof ContainerInterface) {
-                        return $container->get($class->getName());
-                    }
-
-                    return $class->newInstance();
-                }
-
-                if ($parameter->isDefaultValueAvailable() || $parameter->isOptional()) {
-                    // Catch erros for internal functions...
-                    try {
-                        return $parameter->getDefaultValue();
-                    } catch (ReflectionException $e) {
-                        // Do nothing, since "null" is returned...
-                    }
-                }
-
-                return $parameter->allowsNull() ? null : self::NOT_NULL;
-            },
-            $reflection->getParameters()
-        );
     }
 
     /**

@@ -732,9 +732,9 @@ function strip_explode($str)
  * matched words will be converted to #### or to the replacement
  * word you've submitted.
  *
- * @param	string	the text string
- * @param	string	the array of censored words
- * @param	string	the optional replacement value
+ * @param string the text string
+ * @param string the array of censored words
+ * @param string the optional replacement value
  *
  * @return string
  */
