@@ -10,7 +10,7 @@ The recommended way to install Support Manager is via Composer:
 composer require biurad/biurad-helpers
 ```
 
-It requires PHP version 7.0 and supports PHP up to 7.4. The dev-master version requires PHP 7.1.
+It requires PHP version 7.1 and supports PHP up to 7.4. The dev-master version requires PHP 7.2.
 
 ## Changelog
 
@@ -41,7 +41,7 @@ You're free to use this package, but if it makes it to your production environme
 
 Post Here: [Project Patreons - https://patreons.biurad.com](https://patreons.biurad.com)
 
-We publish all received request's on our website;
+We publish all received request's on our website.
 
 ## Credits
 
